@@ -2,7 +2,7 @@
 
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,25 +19,33 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 function LoginForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const [submitting, setSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
 
   const onSubmit = async ({ email, password }: FormData) => {
     setSubmitting(true);
+    setAuthError(null);
     try {
       const supabase = createBrowserClient();
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        toast.error(/invalid/i.test(error.message) ? 'Invalid email or password' : error.message);
+        const msg = /invalid/i.test(error.message) ? 'Invalid email or password' : error.message;
+        setAuthError(msg);
+        toast.error(msg);
         return;
       }
       const next = params.get('next') || '/dashboard';
       // Full reload so the session cookie is sent with the next request
       window.location.href = next;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unexpected error — please try again';
+      console.error('[login] sign-in threw:', err);
+      setAuthError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -45,6 +53,11 @@ function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+      {authError && (
+        <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          {authError}
+        </div>
+      )}
       <Input label="Email" type="email" {...register('email')} error={errors.email?.message} />
       <Input label="Password" type="password" {...register('password')} error={errors.password?.message} />
       <div className="flex justify-end">
