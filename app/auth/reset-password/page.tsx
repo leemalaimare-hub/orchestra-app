@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
+import { createBrowserClient } from '@/lib/supabase';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -12,14 +12,11 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+  const supabase = createBrowserClient();
 
   useEffect(() => {
     // Supabase puts the token in the URL hash — listen for the session
-    supabase.auth.onAuthStateChange((event) => {
+    supabase.auth.onAuthStateChange((event: string) => {
       if (event === 'PASSWORD_RECOVERY') setReady(true);
     });
   }, [supabase]);
