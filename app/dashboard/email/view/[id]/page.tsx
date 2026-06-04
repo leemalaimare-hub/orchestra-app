@@ -93,6 +93,13 @@ export default function EmailViewPage() {
   const isBroadcast = project.positions?.[0]?.send_mode === 'broadcast';
   const templateLog = sendLogs.find((l) => l.email_body);
 
+  // Strip the response-link footer appended by the send engine
+  function stripResponseFooter(html: string): string {
+    // The engine appends a <div>———————————————————</div> separator
+    const idx = html.indexOf('———————————————————');
+    return idx !== -1 ? html.slice(0, idx).trim() : html;
+  }
+
   // One row per musician (most recent log wins)
   const byMusician = new Map<string, SendLog>();
   for (const l of sendLogs) {
@@ -166,7 +173,7 @@ export default function EmailViewPage() {
             {templateLog?.email_body ? (
               <div
                 className="px-5 py-4 text-sm text-slate-800 prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: templateLog.email_body }}
+                dangerouslySetInnerHTML={{ __html: stripResponseFooter(templateLog.email_body) }}
               />
             ) : (
               <p className="px-5 py-4 text-sm text-slate-400">Email content not available.</p>

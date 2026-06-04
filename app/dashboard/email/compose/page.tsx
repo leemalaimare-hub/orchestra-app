@@ -459,6 +459,9 @@ export default function ComposePage() {
   const [sending, setSending] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [loadingDraft, setLoadingDraft] = useState(false);
+  const [autoSavedAt, setAutoSavedAt] = useState<Date | null>(null);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(draftId);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Load templates + groups
   useEffect(() => {
@@ -509,6 +512,45 @@ export default function ComposePage() {
     }).catch(() => toast.error('Failed to load draft'))
       .finally(() => setLoadingDraft(false));
   }, [draftId]);
+
+  // Auto-save draft after 3 seconds of inactivity (only if there's something to save)
+  useEffect(() => {
+    if (loadingDraft) return; // don't auto-save while loading
+    if (!subject.trim() && recipients.length === 0) return; // nothing worth saving yet
+
+    clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/email/compose-send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject: subject || '(Untitled draft)',
+            body: body || '<p></p>',
+            recipients: recipients.map((r) => ({ musician_id: r.musician_id, name: r.name, email: r.email, rank: r.rank })),
+            template_id: templateId || null,
+            accept_deadline_hours: hasDeadline ? (deadlineHours ?? 48) : null,
+            send_mode: broadcast ? 'broadcast' : 'cascade',
+            filled_message: broadcast ? filledMessage : undefined,
+            save_as_draft: true,
+            draft_project_id: currentDraftId || null,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.project_id) {
+          setCurrentDraftId(data.project_id);
+          setAutoSavedAt(new Date());
+          // Update URL without page reload so refreshing keeps the draft
+          window.history.replaceState(null, '', `/dashboard/email/compose?draft=${data.project_id}`);
+        }
+      } catch {
+        // Silent fail — auto-save is best-effort
+      }
+    }, 3000);
+
+    return () => clearTimeout(autoSaveTimerRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subject, body, recipients, hasDeadline, deadlineHours, broadcast, filledMessage, templateId]);
 
   // When template selected, pre-fill subject + body
   const applyTemplate = (id: string) => {
@@ -579,7 +621,7 @@ export default function ComposePage() {
           send_mode: broadcast ? 'broadcast' : 'cascade',
           filled_message: broadcast ? filledMessage : undefined,
           save_as_draft: saveAsDraft,
-          draft_project_id: draftId || null,
+          draft_project_id: currentDraftId || null,
         }),
       });
       const data = await res.json();
@@ -775,10 +817,15 @@ export default function ComposePage() {
           >
             Save Draft
           </Button>
-          <div className="ml-auto text-xs text-slate-400">
+          <div className="ml-auto text-xs text-slate-400 text-right">
+            {autoSavedAt && (
+              <span className="mr-2 text-slate-300">
+                Auto-saved {autoSavedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              </span>
+            )}
             {recipients.length > 0
-              ? `${recipients.length} recipient${recipients.length === 1 ? '' : 's'}${hasDeadline && deadlineHours ? ` · ${deadlineHours}h window` : ' · no deadline'}`
-              : 'Add recipients to send'}
+              ? `${recipients.length} contact${recipients.length === 1 ? '' : 's'}${hasDeadline && deadlineHours ? ` · ${deadlineHours}h window` : ' · no deadline'}`
+              : 'Add contacts to send'}
           </div>
         </div>
       </div>
