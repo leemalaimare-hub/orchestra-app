@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { createAdminClient } from '@/lib/supabase-server';
 import { resetBillingPeriod } from '@/lib/usage';
 import { chargeOverage } from '@/lib/overageBilling';
