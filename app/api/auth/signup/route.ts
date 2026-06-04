@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+
+// Signups are disabled during private beta
+const SIGNUPS_OPEN = false;
 import { createAdminClient } from '@/lib/supabase-server';
 import { createRouteClient } from '@/lib/supabase-route';
 import { trialEndsAt, PLAN_CONFIG } from '@/lib/plans';
@@ -11,6 +14,9 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  if (!SIGNUPS_OPEN) {
+    return NextResponse.json({ error: 'Signups are currently closed. Contact hello@callscade.com for early access.' }, { status: 403 });
+  }
   let body;
   try { body = schema.parse(await req.json()); }
   catch (e) {
