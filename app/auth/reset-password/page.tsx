@@ -1,10 +1,7 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@/lib/supabase';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -14,14 +11,15 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
 
-  const supabase = createBrowserClient();
-
   useEffect(() => {
-    // Supabase puts the token in the URL hash — listen for the session
-    supabase.auth.onAuthStateChange((event: string) => {
-      if (event === 'PASSWORD_RECOVERY') setReady(true);
+    // Only import and use Supabase in the browser
+    import('@/lib/supabase').then(({ createBrowserClient }) => {
+      const supabase = createBrowserClient();
+      supabase.auth.onAuthStateChange((event: string) => {
+        if (event === 'PASSWORD_RECOVERY') setReady(true);
+      });
     });
-  }, [supabase]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +28,9 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     setError('');
+
+    const { createBrowserClient } = await import('@/lib/supabase');
+    const supabase = createBrowserClient();
     const { error: err } = await supabase.auth.updateUser({ password });
     setLoading(false);
 
