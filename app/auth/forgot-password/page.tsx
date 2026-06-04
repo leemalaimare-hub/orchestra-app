@@ -23,7 +23,7 @@ export default function ForgotPasswordPage() {
     try {
       const supabase = createBrowserClient();
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/login`,
+        redirectTo: `${window.location.origin}/auth/reset-password`,
       });
       if (error) { toast.error(error.message); return; }
       setSent(true);
