@@ -14,7 +14,10 @@ export const createServerClient = () => {
   // Build a cookie-based storage adapter for the server side
   const serverCookieStorage = {
     getItem(key: string): string | null {
-      return store.get(key)?.value ?? null;
+      const raw = store.get(key)?.value ?? null;
+      if (!raw) return null;
+      // The browser client stores values URL-encoded; decode before parsing
+      try { return decodeURIComponent(raw); } catch { return raw; }
     },
     setItem(_key: string, _value: string): void {
       // Can't reliably set cookies in RSC — session refresh happens client-side

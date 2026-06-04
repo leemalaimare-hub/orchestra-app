@@ -25,14 +25,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (isAuthRoute && hasSession &&
-      !pathname.startsWith('/auth/accept-invite') &&
-      !pathname.startsWith('/auth/reset-password')) {
-    const url = req.nextUrl.clone();
-    url.pathname = '/dashboard';
-    url.search = '';
-    return NextResponse.redirect(url);
-  }
+  // NOTE: Do NOT redirect away from /auth pages when session exists —
+  // that creates redirect loops if the server-side session read fails.
 
   return NextResponse.next();
 }
