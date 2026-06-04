@@ -36,8 +36,8 @@ function LoginForm() {
         return;
       }
       const next = params.get('next') || '/dashboard';
-      router.push(next);
-      router.refresh();
+      // Full reload so the session cookie is sent with the next request
+      window.location.href = next;
     } finally {
       setSubmitting(false);
     }

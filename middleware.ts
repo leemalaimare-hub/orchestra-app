@@ -6,11 +6,17 @@ export async function middleware(req: NextRequest) {
   const isProtected = pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding');
   const isAuthRoute = pathname.startsWith('/auth');
 
-  // Supabase sets a cookie like: sb-<ref>-auth-token
-  // If it exists and has a value, the user has a session
-  const hasSession = req.cookies.getAll().some(
-    (c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token') && c.value.length > 0
-  );
+  // Check for any Supabase session cookie
+  // Supabase sets cookies with key like: sb-<ref>-auth-token or custom storage keys
+  const cookies = req.cookies.getAll();
+  const hasSession = cookies.some((c) => {
+    if (c.value.length === 0) return false;
+    // Standard Supabase cookie names
+    if (c.name.startsWith('sb-') && c.name.endsWith('-auth-token')) return true;
+    // Our custom cookie storage key (set by createBrowserClient)
+    if (c.name.startsWith('sb-') && c.name.includes('-auth-token')) return true;
+    return false;
+  });
 
   if (isProtected && !hasSession) {
     const url = req.nextUrl.clone();
