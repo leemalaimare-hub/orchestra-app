@@ -30,6 +30,17 @@ const FAQS = [
   { q: 'What happens after the free trial?', a: 'After 30 days, your saved payment method will be charged. You can cancel before then with no charge.' },
 ];
 
+function ComingSoonBtn({ className }: { className?: string }) {
+  return (
+    <button
+      disabled
+      className={`cursor-not-allowed rounded-md bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-400 ${className ?? ''}`}
+    >
+      Coming Soon
+    </button>
+  );
+}
+
 export default function LandingPage() {
   const [annual, setAnnual] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -48,10 +59,7 @@ export default function LandingPage() {
           <span className="text-lg font-bold text-indigo-600">Callscade</span>
           <nav className="hidden items-center gap-4 sm:flex">
             <Link href="/auth/login" className="text-sm font-medium text-slate-600 hover:text-slate-900">Sign In</Link>
-            <Link href="/auth/signup" onClick={() => track('cta_clicked', { location: 'nav' })}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-              Start Free Trial
-            </Link>
+            <ComingSoonBtn />
           </nav>
           <button className="sm:hidden" onClick={() => setMenuOpen((o) => !o)} aria-label="Menu">
             {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -60,9 +68,7 @@ export default function LandingPage() {
         {menuOpen && (
           <div className="flex flex-col gap-2 border-t border-slate-200 px-4 py-3 sm:hidden">
             <Link href="/auth/login" className="text-sm font-medium text-slate-600">Sign In</Link>
-            <Link href="/auth/signup" className="rounded-md bg-indigo-600 px-4 py-2 text-center text-sm font-medium text-white">
-              Start Free Trial
-            </Link>
+            <ComingSoonBtn className="text-center" />
           </div>
         )}
       </header>
@@ -77,10 +83,7 @@ export default function LandingPage() {
           move on automatically on decline or no response, and fill roles in minutes instead of hours.
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link href="/auth/signup" onClick={() => track('cta_clicked', { location: 'hero' })}
-            className="w-full rounded-md bg-indigo-600 px-6 py-3 text-base font-semibold text-white hover:bg-indigo-700 sm:w-auto">
-            Start Free Trial — No Credit Card
-          </Link>
+          <ComingSoonBtn className="w-full px-6 py-3 text-base sm:w-auto" />
           <a href="#how-it-works"
             className="w-full rounded-md border border-slate-300 px-6 py-3 text-base font-semibold hover:bg-slate-50 sm:w-auto">
             See How It Works
@@ -177,10 +180,7 @@ export default function LandingPage() {
                   <li key={f} className="flex gap-2"><Check className="h-4 w-4 text-green-600" />{f}</li>
                 ))}
               </ul>
-              <Link href="/auth/signup" onClick={() => track('pricing_plan_clicked', { plan: 'starter' })}
-                className="mt-6 block rounded-md bg-indigo-600 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-indigo-700">
-                Start Free Trial
-              </Link>
+              <ComingSoonBtn className="mt-6 w-full text-center" />
             </div>
             <div className="rounded-lg border-2 border-indigo-600 bg-white p-6">
               <div className="flex items-center justify-between">
@@ -194,10 +194,7 @@ export default function LandingPage() {
                   <li key={f} className="flex gap-2"><Check className="h-4 w-4 text-green-600" />{f}</li>
                 ))}
               </ul>
-              <Link href="/auth/signup" onClick={() => track('pricing_plan_clicked', { plan: 'pro' })}
-                className="mt-6 block rounded-md bg-indigo-600 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-indigo-700">
-                Start Free Trial
-              </Link>
+              <ComingSoonBtn className="mt-6 w-full text-center" />
             </div>
           </div>
           <p className="mt-4 text-center text-sm text-slate-500">
@@ -230,12 +227,11 @@ export default function LandingPage() {
           <p className="mt-2 text-indigo-100">
             Join teams that have automated their on-call outreach with Callscade.
           </p>
-          <Link href="/auth/signup" onClick={() => track('cta_clicked', { location: 'final' })}
-            className="mt-6 inline-block rounded-md bg-white px-6 py-3 text-base font-semibold text-indigo-700 hover:bg-indigo-50">
-            Start Free Trial
-          </Link>
+          <div className="mt-6">
+            <ComingSoonBtn className="px-6 py-3 text-base bg-slate-300 text-slate-500" />
+          </div>
           <p className="mt-3 text-sm text-indigo-200">
-            No credit card required • Cancel anytime • 30-day free trial
+            Currently in private beta — coming soon to everyone.
           </p>
         </div>
       </section>
