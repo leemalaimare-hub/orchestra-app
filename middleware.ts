@@ -1,36 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const isProtected = pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding');
-  const isAuthRoute = pathname.startsWith('/auth');
 
-  // Check for any Supabase session cookie
-  // Supabase sets cookies with key like: sb-<ref>-auth-token or custom storage keys
-  const cookies = req.cookies.getAll();
-  const hasSession = cookies.some((c) => {
-    if (c.value.length === 0) return false;
-    // Standard Supabase cookie names
-    if (c.name.startsWith('sb-') && c.name.endsWith('-auth-token')) return true;
-    // Our custom cookie storage key (set by createBrowserClient)
-    if (c.name.startsWith('sb-') && c.name.includes('-auth-token')) return true;
-    return false;
-  });
+  // Build a response we can attach cookie mutations to
+  let res = NextResponse.next({ request: req });
 
-  if (isProtected && !hasSession) {
+  // Create a Supabase client that can read & refresh session cookies in middleware
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          // Apply any refreshed tokens back to both request and response
+          cookiesToSet.forEach(({ name, value }) => req.cookies.set(name, value));
+          res = NextResponse.next({ request: req });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            res.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  // getUser() refreshes the session if needed and validates the JWT
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (isProtected && !user) {
     const url = req.nextUrl.clone();
     url.pathname = '/auth/login';
     url.searchParams.set('next', pathname);
     return NextResponse.redirect(url);
   }
 
-  // NOTE: Do NOT redirect away from /auth pages when session exists —
-  // that creates redirect loops if the server-side session read fails.
-
-  return NextResponse.next();
+  return res;
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/onboarding/:path*', '/auth/:path*'],
+  matcher: ['/dashboard/:path*', '/onboarding/:path*'],
 };

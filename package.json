@@ -17,6 +17,7 @@
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@stripe/stripe-js": "^9.5.0",
     "@supabase/auth-helpers-nextjs": "^0.15.0",
+    "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@tiptap/extension-color": "^3.23.6",
     "@tiptap/extension-link": "^3.23.6",
