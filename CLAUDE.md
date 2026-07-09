@@ -99,15 +99,32 @@ var FIRST. Almost every production bug so far was exactly that, hidden by silent
 
 ## Migrations
 
-`supabase/migrations/001`–`016` applied. Latest: 014 (broadcast mode), 015 (nullable deadline),
-016 (one-off templates). Apply new migrations in the Supabase SQL editor.
+`supabase/migrations/001`–`017` applied. Latest: 015 (nullable deadline), 016 (one-off
+templates), 017 (pg_cron jobs — see Cron section; the repo file has a `<CRON_SECRET>`
+placeholder, the applied version had the real secret substituted). Apply new migrations in
+the Supabase SQL editor.
+
+## Cron jobs (pg_cron)
+
+Set up 2026-07-09 via Supabase pg_cron + pg_net (migration 017). Two jobs call the prod
+endpoints with `Authorization: Bearer CRON_SECRET`:
+- `check-deadlines` — every 15 min → `/api/cron/check-deadlines` (advances stuck cascades).
+- `reset-billing` — daily 02:10 UTC → `/api/cron/reset-billing` (only touches orgs whose
+  `billing_period_end` has passed, so daily is safe and handles rolling anniversaries).
+`CRON_SECRET` is set in Vercel (matches `.env.local`); both endpoints verified returning 200.
+Inspect: `select jobname, schedule, active from cron.job;` and recent results via
+`select status, (response).status_code, created from net._http_response order by created desc;`
+**Caveat:** the Supabase project is on the free tier — it auto-pauses after ~1 week of
+inactivity, which stops the DB *and* these cron jobs (cascades stop advancing). Upgrade to
+Pro or keep the project active.
 
 ## Remaining / TODO
 
-- [ ] **Cron jobs** NOT set up. Two routes need a scheduler hitting them with `Bearer CRON_SECRET`:
-      `/api/cron/check-deadlines` (advances cascades on no-response — important!) and
-      `/api/cron/reset-billing` (monthly). Were removed from `vercel.json` (needed paid plan).
-      Decide: Vercel Cron (Pro), Supabase pg_cron (free, future-proof), or external (cron-job.org).
+- [x] **Cron jobs** — DONE 2026-07-09 via Supabase pg_cron (see Cron jobs section).
+- [ ] **Supabase free-tier auto-pause** — paused project = dead app + dead crons. Decide:
+      upgrade to Pro, or accept the risk during quiet beta periods.
+- [ ] **Backups** — free tier has none; before real customers, Pro (daily backups) or
+      periodic manual `pg_dump`.
 - [ ] **Stripe** end-to-end test (checkout/webhook/plan-change); still in TEST mode — switch to
       LIVE before real customers.
 - [ ] Audit that ALL env vars are present in Vercel.
