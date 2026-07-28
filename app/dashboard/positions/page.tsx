@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
-import { Plus, Music2, Trash2, Sparkles } from 'lucide-react';
+import { Plus, Music2, Trash2, Sparkles, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
@@ -167,6 +168,11 @@ export default function PositionsLibraryPage() {
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
+                      <Link href={`/dashboard/positions/${p.id}`} className="shrink-0">
+                        <button className="flex items-center gap-1 rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-indigo-300 hover:text-indigo-700">
+                          Manage <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </Link>
                     </div>
                   ))}
                 </div>

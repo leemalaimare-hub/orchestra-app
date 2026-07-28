@@ -4,6 +4,13 @@ import { getCurrentManager } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase-server';
 import { logActivity } from '@/lib/activityLogger';
 
+const rehearsalSchema = z.object({
+  date: z.string().min(1),
+  start_time: z.string().nullable().optional(),
+  location: z.string().max(300).nullable().optional(),
+  notes: z.string().max(1000).nullable().optional(),
+});
+
 const createSchema = z.object({
   name: z.string().min(1).max(200),
   notes: z.string().max(5000).nullable().optional(),
@@ -11,6 +18,10 @@ const createSchema = z.object({
   accept_deadline_hours: z.number().int().min(1).max(8760).optional(),
   accept_deadline_text: z.string().max(500).nullable().optional(),
   custom_variables: z.record(z.string(), z.string()).optional(),
+  dates: z.array(z.string()).nullable().optional(),
+  event_time: z.string().nullable().optional(),
+  venue: z.string().max(300).nullable().optional(),
+  rehearsals: z.array(rehearsalSchema).optional(),
 });
 
 // GET /api/concerts?status=&include_positions=&page=&limit=
@@ -75,11 +86,29 @@ export async function POST(req: NextRequest) {
       accept_deadline_hours: body.accept_deadline_hours ?? 48,
       accept_deadline_text: body.accept_deadline_text ?? null,
       custom_variables: body.custom_variables ?? {},
+      dates: body.dates ?? null,
+      event_time: body.event_time ?? null,
+      venue: body.venue ?? null,
       status: 'draft',
     })
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (body.rehearsals && body.rehearsals.length > 0) {
+    const { error: rehErr } = await admin.from('concert_rehearsals').insert(
+      body.rehearsals.map((r, i) => ({
+        concert_id: data.id,
+        date: r.date,
+        start_time: r.start_time || null,
+        location: r.location || null,
+        notes: r.notes || null,
+        display_order: i,
+      })),
+    );
+    if (rehErr) return NextResponse.json({ error: `Failed to save rehearsals: ${rehErr.message}` }, { status: 500 });
+  }
+
   await logActivity({
     organizationId: ctx.organization.id, managerId: ctx.manager.id, action: 'concert_created',
     entityType: 'concert', entityId: data.id, details: { concert_name: data.name },

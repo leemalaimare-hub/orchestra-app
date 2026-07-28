@@ -2,13 +2,18 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Mail, Users, Settings, X, ListOrdered, Clock, FileText, Pencil, BookMarked } from 'lucide-react';
+import { Home, Mail, Users, Settings, X, CalendarDays, Clock, FileText, Pencil, BookMarked } from 'lucide-react';
 
 const emailSubNav = [
   { href: '/dashboard/email/compose', label: 'Compose New Message', icon: Pencil },
   { href: '/dashboard/email/drafts',  label: 'Drafts', icon: BookMarked },
   { href: '/dashboard/email/sent',    label: 'Sent', icon: Clock },
   { href: '/dashboard/templates',     label: 'Templates', icon: FileText },
+];
+
+const concertsSubNav = [
+  { href: '/dashboard/concerts',     label: 'All Concerts' },
+  { href: '/dashboard/concerts/new', label: 'New Concert' },
 ];
 
 const contactsSubNav = [
@@ -59,6 +64,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
 
   const inEmail    = pathname.startsWith('/dashboard/email') ||
                      pathname.startsWith('/dashboard/templates');
+  const inConcerts = pathname.startsWith('/dashboard/concerts');
   const inContacts = pathname.startsWith('/dashboard/musicians') ||
                      pathname.startsWith('/dashboard/groups') ||
                      pathname.startsWith('/dashboard/positions');
@@ -111,6 +117,21 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           </Link>
           {inEmail && (
             <SubNav items={emailSubNav} onClose={onClose} isActive={isActive} />
+          )}
+
+          {/* Concerts section */}
+          <Link
+            href="/dashboard/concerts"
+            onClick={onClose}
+            className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium ${
+              inConcerts ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            <CalendarDays className="h-4 w-4" />
+            Concerts
+          </Link>
+          {inConcerts && (
+            <SubNav items={concertsSubNav} onClose={onClose} isActive={isActive} />
           )}
 
           {/* Contacts section */}

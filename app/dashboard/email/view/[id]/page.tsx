@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { toast } from 'sonner';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, Circle, SkipForward, ChevronDown, ChevronUp, StopCircle, Plus, Send } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, Circle, SkipForward, ChevronDown, ChevronUp, StopCircle, Plus, Send, CalendarDays, MapPin, Pencil } from 'lucide-react';
 import { AddEditPositionModal } from '@/components/concerts/AddEditPositionModal';
-import type { ConcertPosition } from '@/types';
+import type { ConcertPosition, ConcertRehearsal } from '@/types';
 
 interface SendLog {
   id: string;
@@ -25,7 +26,23 @@ interface Project {
   name: string;
   status: string;
   created_at: string;
+  dates: string[] | null;
+  event_time: string | null;
+  venue: string | null;
   positions: ConcertPosition[];
+  rehearsals: ConcertRehearsal[];
+}
+
+function fmtDate(d: string | null | undefined) {
+  if (!d) return null;
+  return new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function fmtTime(t: string | null | undefined) {
+  if (!t) return null;
+  const [h, m] = t.split(':');
+  const d = new Date();
+  d.setHours(Number(h), Number(m));
+  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
 const STATUS_CFG: Record<string, { label: string; icon: typeof Circle; cls: string }> = {
@@ -131,6 +148,12 @@ export default function EmailViewPage() {
           <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusCls}`}>
             {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
           </span>
+          <Link
+            href={`/dashboard/concerts/${project.id}/edit`}
+            className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-indigo-300 hover:text-indigo-700 transition-colors"
+          >
+            <Pencil className="h-3.5 w-3.5" /> Edit Details
+          </Link>
           {(project.status === 'active' || project.status === 'draft') && (
             <button
               onClick={() => setAddPositionOpen(true)}
@@ -151,6 +174,37 @@ export default function EmailViewPage() {
           )}
         </div>
       </div>
+
+      {/* Concert details — date/time/location/rehearsals, when set */}
+      {(project.dates?.[0] || project.event_time || project.venue || project.rehearsals.length > 0) && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-700">
+            {(project.dates?.[0] || project.event_time) && (
+              <span className="flex items-center gap-1.5">
+                <CalendarDays className="h-4 w-4 text-slate-400" />
+                {[fmtDate(project.dates?.[0]), fmtTime(project.event_time)].filter(Boolean).join(' · ')}
+              </span>
+            )}
+            {project.venue && (
+              <span className="flex items-center gap-1.5">
+                <MapPin className="h-4 w-4 text-slate-400" /> {project.venue}
+              </span>
+            )}
+          </div>
+          {project.rehearsals.length > 0 && (
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Rehearsals</p>
+              <div className="space-y-1">
+                {project.rehearsals.map((r) => (
+                  <p key={r.id} className="text-sm text-slate-600">
+                    {[fmtDate(r.date), fmtTime(r.start_time), r.location].filter(Boolean).join(' · ')}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* One card per position — each has its own email content + contact list */}
       {project.positions.map((position) => (

@@ -7,7 +7,9 @@ import { toast } from 'sonner';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import type { Concert, EmailTemplate, ProjectStatus } from '@/types';
+import type { Concert, ConcertRehearsal, EmailTemplate, ProjectStatus } from '@/types';
+
+interface DraftRehearsal { date: string; start_time: string; location: string; notes: string }
 
 const schema = z.object({
   name: z.string().min(1, 'Project name is required').max(200),
@@ -92,7 +94,7 @@ function VariableEditor({
   );
 }
 
-export function ConcertForm({ concert }: { concert?: Concert }) {
+export function ConcertForm({ concert }: { concert?: Concert & { rehearsals?: ConcertRehearsal[] } }) {
   const router = useRouter();
   const isEdit = !!concert;
 
@@ -109,6 +111,20 @@ export function ConcertForm({ concert }: { concert?: Concert }) {
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const [eventDate, setEventDate] = useState(concert?.dates?.[0] ?? '');
+  const [eventTime, setEventTime] = useState(concert?.event_time ?? '');
+  const [venue, setVenue] = useState(concert?.venue ?? '');
+  const [rehearsals, setRehearsals] = useState<DraftRehearsal[]>(
+    (concert?.rehearsals ?? []).map((r) => ({
+      date: r.date, start_time: r.start_time ?? '', location: r.location ?? '', notes: r.notes ?? '',
+    }))
+  );
+
+  const addRehearsal = () => setRehearsals((r) => [...r, { date: '', start_time: '', location: '', notes: '' }]);
+  const removeRehearsal = (idx: number) => setRehearsals((r) => r.filter((_, i) => i !== idx));
+  const updateRehearsal = (idx: number, patch: Partial<DraftRehearsal>) =>
+    setRehearsals((r) => r.map((row, i) => (i === idx ? { ...row, ...patch } : row)));
+
   useEffect(() => {
     fetch('/api/templates')
       .then((r) => r.json())
@@ -124,6 +140,10 @@ export function ConcertForm({ concert }: { concert?: Concert }) {
       setErrors(errs);
       return;
     }
+    for (const r of rehearsals) {
+      if (!r.date) { toast.error('Each rehearsal needs a date'); return; }
+    }
+
     setErrors({});
     setSaving(true);
     try {
@@ -134,6 +154,12 @@ export function ConcertForm({ concert }: { concert?: Concert }) {
         accept_deadline_hours: deadlineHours,
         accept_deadline_text: deadlineText || null,
         custom_variables: customVariables,
+        dates: eventDate ? [eventDate] : null,
+        event_time: eventTime || null,
+        venue: venue || null,
+        rehearsals: rehearsals.map((r) => ({
+          date: r.date, start_time: r.start_time || null, location: r.location || null, notes: r.notes || null,
+        })),
         ...(isEdit ? { status } : {}),
       };
       let projectId = concert?.id;
@@ -155,8 +181,8 @@ export function ConcertForm({ concert }: { concert?: Concert }) {
         if (!res.ok) { toast.error(b.error || 'Save failed'); return; }
         projectId = b.concert.id;
       }
-      toast.success(isEdit ? 'Project updated' : 'Project created');
-      router.push(thenAddPositions ? `/dashboard/concerts/${projectId}` : '/dashboard/concerts');
+      toast.success(isEdit ? 'Concert updated' : 'Concert created');
+      router.push(thenAddPositions ? `/dashboard/email/view/${projectId}` : '/dashboard/concerts');
       router.refresh();
     } finally {
       setSaving(false);
@@ -166,10 +192,10 @@ export function ConcertForm({ concert }: { concert?: Concert }) {
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="text-2xl font-bold text-slate-900">
-        {isEdit ? 'Edit Project' : 'New Project'}
+        {isEdit ? 'Edit Concert' : 'New Concert'}
       </h1>
       <p className="mt-1 text-sm text-slate-500">
-        Projects are cascade outreach workspaces. Add positions and a recipient sequence to start sending.
+        Set the event details, then add positions and seat counts to start sending.
       </p>
 
       <div className="mt-6 space-y-4">
@@ -196,6 +222,62 @@ export function ConcertForm({ concert }: { concert?: Concert }) {
               placeholder="Context for your team — budget, priority, special notes…"
               className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
+          </div>
+        </section>
+
+        {/* Event details */}
+        <section className="rounded-lg border border-slate-200 bg-white p-5">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Event</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Date</label>
+              <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)}
+                className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Time</label>
+              <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)}
+                className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <Input label="Location" placeholder="e.g. Symphony Hall" value={venue} onChange={(e) => setVenue(e.target.value)} />
+          </div>
+        </section>
+
+        {/* Rehearsals */}
+        <section className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Rehearsals</h2>
+            <Button type="button" size="sm" variant="secondary" onClick={addRehearsal}>
+              <Plus className="h-3.5 w-3.5" /> Add Rehearsal
+            </Button>
+          </div>
+          {rehearsals.length === 0 && <p className="mt-2 text-xs text-slate-400">No rehearsals added.</p>}
+          <div className="mt-3 space-y-2">
+            {rehearsals.map((r, i) => (
+              <div key={i} className="flex flex-wrap items-end gap-2 rounded border border-slate-100 bg-slate-50 p-2">
+                <div>
+                  <label className="block text-xs text-slate-500">Date</label>
+                  <input type="date" value={r.date} onChange={(e) => updateRehearsal(i, { date: e.target.value })}
+                    className="rounded border border-slate-300 px-2 py-1 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500">Time</label>
+                  <input type="time" value={r.start_time} onChange={(e) => updateRehearsal(i, { start_time: e.target.value })}
+                    className="rounded border border-slate-300 px-2 py-1 text-sm" />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs text-slate-500">Location</label>
+                  <input type="text" value={r.location} placeholder="Rehearsal room"
+                    onChange={(e) => updateRehearsal(i, { location: e.target.value })}
+                    className="w-full rounded border border-slate-300 px-2 py-1 text-sm" />
+                </div>
+                <button type="button" onClick={() => removeRehearsal(i)} className="p-1 text-slate-400 hover:text-red-600">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -304,7 +386,7 @@ export function ConcertForm({ concert }: { concert?: Concert }) {
 
       <div className="mt-6 flex flex-wrap gap-2">
         <Button onClick={() => save(false)} loading={saving}>
-          {isEdit ? 'Save Project' : 'Create Project'}
+          {isEdit ? 'Save Concert' : 'Create Concert'}
         </Button>
         <Button variant="secondary" onClick={() => save(true)} loading={saving}>
           Save &amp; Add Positions

@@ -120,25 +120,47 @@ export function AddEditPositionModal({ open, onClose, onSaved, concertId, positi
     }
   }, [open, position, concertId]);
 
-  // In add mode, load the org master list when the position name matches an existing position
+  // In add mode, load a list when the position name matches an existing position —
+  // prefer the Positions library's ranked call list, fall back to a free-text match
+  // against musicians.position.
   useEffect(() => {
     if (isEdit || !open || !positionName) return;
-    const handle = setTimeout(() => {
+    const handle = setTimeout(async () => {
       setLoadingList(true);
-      fetch(`/api/musicians?position=${encodeURIComponent(positionName)}&sort=rank&limit=100`)
-        .then((r) => r.json())
-        .then((d) => setMusicians((d.musicians ?? []).map((m: {
+      try {
+        const libMatch = libraryPositions.find((p) => p.name.toLowerCase() === positionName.trim().toLowerCase());
+        if (libMatch) {
+          const d = await fetch(`/api/positions-library/${libMatch.id}/members`).then((r) => r.json());
+          const libMembers = d.members ?? [];
+          if (libMembers.length > 0) {
+            setMusicians(libMembers.map((m: {
+              id: string; musician_id: string;
+              musicians: { first_name: string; last_name: string; email: string; is_blacklisted: boolean } | null;
+            }) => ({
+              key: m.id, musician_id: m.musician_id,
+              name: m.musicians ? `${m.musicians.first_name} ${m.musicians.last_name}` : '',
+              email: m.musicians?.email ?? '', is_blacklisted: m.musicians?.is_blacklisted ?? false,
+              currently_unavailable: false,
+            })));
+            return;
+          }
+        }
+        const d = await fetch(`/api/musicians?position=${encodeURIComponent(positionName)}&sort=rank&limit=100`).then((r) => r.json());
+        setMusicians((d.musicians ?? []).map((m: {
           id: string; first_name: string; last_name: string; email: string;
           is_blacklisted: boolean; currently_unavailable?: boolean;
         }) => ({
           key: m.id, musician_id: m.id, name: `${m.first_name} ${m.last_name}`,
           email: m.email, is_blacklisted: m.is_blacklisted, currently_unavailable: !!m.currently_unavailable,
-        }))))
-        .catch(() => {})
-        .finally(() => setLoadingList(false));
+        })));
+      } catch {
+        // best-effort
+      } finally {
+        setLoadingList(false);
+      }
     }, 350);
     return () => clearTimeout(handle);
-  }, [positionName, isEdit, open]);
+  }, [positionName, isEdit, open, libraryPositions]);
 
   const onDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;

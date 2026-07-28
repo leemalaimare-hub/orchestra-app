@@ -173,10 +173,10 @@ export interface Concert {
   organization_id: UUID;
   created_by: UUID | null;
   name: string;
-  // Legacy concert fields — nullable, no longer shown in UI
   dates: string[] | null;
-  rehearsal_dates: string[] | null;
+  rehearsal_dates: string[] | null; // legacy — superseded by ConcertRehearsal rows
   venue: string | null;
+  event_time: string | null;
   // Project fields
   notes: string | null;
   template_id: UUID | null;          // default template for this project
@@ -186,6 +186,11 @@ export interface Concert {
   status: ProjectStatus;
   created_at: Timestamp;
   updated_at: Timestamp;
+}
+
+export interface ConcertWithDetails extends Concert {
+  positions?: ConcertPosition[];
+  rehearsals?: ConcertRehearsal[];
 }
 
 // Recipient Groups — reusable ordered contact sequences
@@ -239,6 +244,26 @@ export interface PositionDefinition {
   section: string | null;
   display_order: number;
   default_group_id: UUID | null;
+  created_at: Timestamp;
+}
+
+export interface PositionDefinitionMember {
+  id: UUID;
+  position_definition_id: UUID;
+  musician_id: UUID;
+  rank: number;
+  created_at: Timestamp;
+  musicians: { id: UUID; first_name: string; last_name: string; email: string; is_blacklisted: boolean } | null;
+}
+
+export interface ConcertRehearsal {
+  id: UUID;
+  concert_id: UUID;
+  date: string;
+  start_time: string | null;
+  location: string | null;
+  notes: string | null;
+  display_order: number;
   created_at: Timestamp;
 }
 
