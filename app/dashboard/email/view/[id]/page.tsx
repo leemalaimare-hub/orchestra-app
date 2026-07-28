@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { ArrowLeft, CheckCircle2, XCircle, Clock, Circle, SkipForward, ChevronDown, ChevronUp, StopCircle, Plus, Send, CalendarDays, MapPin, Pencil } from 'lucide-react';
 import { AddEditPositionModal } from '@/components/concerts/AddEditPositionModal';
+import { ImportInstrumentationModal } from '@/components/concerts/ImportInstrumentationModal';
 import type { ConcertPosition, ConcertRehearsal } from '@/types';
 
 interface SendLog {
@@ -25,9 +26,11 @@ interface Project {
   id: string;
   name: string;
   status: string;
+  origin: string;
   created_at: string;
   dates: string[] | null;
   event_time: string | null;
+  event_timezone: string | null;
   venue: string | null;
   positions: ConcertPosition[];
   rehearsals: ConcertRehearsal[];
@@ -36,6 +39,16 @@ interface Project {
 function fmtDate(d: string | null | undefined) {
   if (!d) return null;
   return new Date(d + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function tzAbbrev(tz: string | null | undefined) {
+  if (!tz) return null;
+  try {
+    const parts = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'short' }).formatToParts(new Date());
+    return parts.find((p) => p.type === 'timeZoneName')?.value ?? null;
+  } catch {
+    return null;
+  }
 }
 function fmtTime(t: string | null | undefined) {
   if (!t) return null;
@@ -70,6 +83,7 @@ export default function EmailViewPage() {
   const [loading, setLoading] = useState(true);
   const [stopping, setStopping] = useState(false);
   const [addPositionOpen, setAddPositionOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [sendingPositionId, setSendingPositionId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -162,6 +176,15 @@ export default function EmailViewPage() {
               <Plus className="h-3.5 w-3.5" /> Add Position
             </button>
           )}
+          {project.origin === 'concert' && project.positions.length === 0
+            && (project.status === 'active' || project.status === 'draft') && (
+            <button
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-indigo-300 hover:text-indigo-700 transition-colors"
+            >
+              Import Instrumentation
+            </button>
+          )}
           {project.status === 'active' && (
             <button
               onClick={stopCascade}
@@ -182,7 +205,7 @@ export default function EmailViewPage() {
             {(project.dates?.[0] || project.event_time) && (
               <span className="flex items-center gap-1.5">
                 <CalendarDays className="h-4 w-4 text-slate-400" />
-                {[fmtDate(project.dates?.[0]), fmtTime(project.event_time)].filter(Boolean).join(' · ')}
+                {[fmtDate(project.dates?.[0]), fmtTime(project.event_time), tzAbbrev(project.event_timezone)].filter(Boolean).join(' · ')}
               </span>
             )}
             {project.venue && (
@@ -197,7 +220,7 @@ export default function EmailViewPage() {
               <div className="space-y-1">
                 {project.rehearsals.map((r) => (
                   <p key={r.id} className="text-sm text-slate-600">
-                    {[fmtDate(r.date), fmtTime(r.start_time), r.location].filter(Boolean).join(' · ')}
+                    {[fmtDate(r.date), fmtTime(r.start_time), tzAbbrev(r.timezone), r.location].filter(Boolean).join(' · ')}
                   </p>
                 ))}
               </div>
@@ -224,6 +247,13 @@ export default function EmailViewPage() {
         concertId={project.id}
         position={null}
         existingPositionNames={project.positions.map((p) => p.position_name)}
+      />
+
+      <ImportInstrumentationModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        concertId={project.id}
+        onImported={load}
       />
     </div>
   );

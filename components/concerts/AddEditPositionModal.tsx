@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { TemplateSelector } from '@/components/templates/TemplateSelector';
 import { TemplatePreviewModal } from '@/components/templates/TemplatePreviewModal';
-import type { ConcertPosition, EmailTemplateWithMeta, PositionDefinition } from '@/types';
+import type { ConcertPosition, EmailTemplateWithMeta, PayRate, PositionDefinition } from '@/types';
 
 interface MusicianRow {
   key: string;            // dnd id
@@ -76,11 +76,23 @@ export function AddEditPositionModal({ open, onClose, onSaved, concertId, positi
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [libraryPositions, setLibraryPositions] = useState<PositionDefinition[]>([]);
+  const [payRates, setPayRates] = useState<PayRate[]>([]);
+  const [payRateId, setPayRateId] = useState<string>('');
+  const [payRateTouched, setPayRateTouched] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     fetch('/api/positions-library').then((r) => r.json()).then((d) => setLibraryPositions(d.positions ?? [])).catch(() => {});
+    fetch('/api/pay-rates').then((r) => r.json()).then((d) => setPayRates(d.rates ?? [])).catch(() => {});
   }, [open]);
+
+  // In add mode, default the pay rate from the matching library position's rate —
+  // unless the manager has manually changed it for this position.
+  useEffect(() => {
+    if (isEdit || payRateTouched || !positionName) return;
+    const libMatch = libraryPositions.find((p) => p.name.toLowerCase() === positionName.trim().toLowerCase());
+    setPayRateId(libMatch?.pay_rate_id ?? '');
+  }, [positionName, isEdit, payRateTouched, libraryPositions]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -100,6 +112,8 @@ export function AddEditPositionModal({ open, onClose, onSaved, concertId, positi
       setNoResponseMode(position.auto_resend_enabled ? 'auto' : 'notify');
       setAutoResendDays(position.auto_resend_days ?? 0);
       setBroadcast(position.send_mode === 'broadcast');
+      setPayRateId(position.pay_rate_id ?? '');
+      setPayRateTouched(false);
       // load existing position musician list
       setLoadingList(true);
       fetch(`/api/concerts/${concertId}/positions/${position.id}/musicians`)
@@ -117,6 +131,7 @@ export function AddEditPositionModal({ open, onClose, onSaved, concertId, positi
       setPositionName(''); setNeeded(1); setTemplateId(undefined); setSelectedTemplate(null);
       setDeadlineType('days'); setDeadlineDays(2); setDeadlineDate('');
       setNoResponseMode('notify'); setAutoResendDays(0); setBroadcast(false); setMusicians([]);
+      setPayRateId(''); setPayRateTouched(false);
     }
   }, [open, position, concertId]);
 
@@ -192,6 +207,7 @@ export function AddEditPositionModal({ open, onClose, onSaved, concertId, positi
         auto_resend_enabled: noResponseMode === 'auto',
         auto_resend_days: noResponseMode === 'auto' ? autoResendDays : 0,
         send_mode: broadcast ? 'broadcast' as const : 'cascade' as const,
+        pay_rate_id: payRateId || null,
       };
 
       if (isEdit) {
@@ -244,6 +260,26 @@ export function AddEditPositionModal({ open, onClose, onSaved, concertId, positi
               className="h-3.5 w-3.5 rounded accent-amber-500" />
             📡 Broadcast — email everyone at once instead of one-by-one cascade
           </label>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Pay per service
+              <span className="ml-1 text-xs font-normal text-slate-400">
+                {payRateId && !payRateTouched ? '(from Positions library — override if needed)' : 'optional — inserted via {{pay_rate}}'}
+              </span>
+            </label>
+            <select
+              value={payRateId}
+              onChange={(e) => { setPayRateId(e.target.value); setPayRateTouched(true); }}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">No pay rate</option>
+              {payRates.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} — {new Intl.NumberFormat('en-US', { style: 'currency', currency: r.currency }).format(r.amount)}
+                </option>
+              ))}
+            </select>
+          </div>
         </section>
 
         {/* Section 2 — template */}

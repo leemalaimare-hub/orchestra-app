@@ -13,6 +13,7 @@ const updateSchema = z.object({
   auto_resend_days: z.number().int().min(0).max(60).nullable().optional(),
   send_mode: z.enum(['cascade', 'broadcast']).optional(),
   position_group_label: z.string().max(120).nullable().optional(),
+  pay_rate_id: z.string().uuid().nullable().optional(),
   status: z.enum(['pending', 'active', 'filled', 'exhausted', 'cancelled']).optional(),
 });
 

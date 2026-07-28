@@ -177,6 +177,8 @@ export interface Concert {
   rehearsal_dates: string[] | null; // legacy — superseded by ConcertRehearsal rows
   venue: string | null;
   event_time: string | null;
+  event_timezone: string | null;
+  origin: 'compose' | 'concert';
   // Project fields
   notes: string | null;
   template_id: UUID | null;          // default template for this project
@@ -232,6 +234,7 @@ export interface ConcertPosition {
   auto_resend_days: number | null;
   send_mode: SendMode;
   position_group_label: string | null;
+  pay_rate_id: UUID | null;
   status: ConcertPositionStatus;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -244,6 +247,17 @@ export interface PositionDefinition {
   section: string | null;
   display_order: number;
   default_group_id: UUID | null;
+  pay_rate_id: UUID | null;
+  created_at: Timestamp;
+}
+
+export interface PayRate {
+  id: UUID;
+  organization_id: UUID;
+  name: string;
+  amount: number;
+  currency: string;
+  display_order: number;
   created_at: Timestamp;
 }
 
@@ -256,6 +270,27 @@ export interface PositionDefinitionMember {
   musicians: { id: UUID; first_name: string; last_name: string; email: string; is_blacklisted: boolean } | null;
 }
 
+export interface ConcertTemplate {
+  id: UUID;
+  organization_id: UUID;
+  name: string;
+  description: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface ConcertTemplatePosition {
+  id: UUID;
+  concert_template_id: UUID;
+  position_name: string;
+  musicians_needed: number;
+  display_order: number;
+}
+
+export interface ConcertTemplateWithPositions extends ConcertTemplate {
+  positions: ConcertTemplatePosition[];
+}
+
 export interface ConcertRehearsal {
   id: UUID;
   concert_id: UUID;
@@ -263,6 +298,7 @@ export interface ConcertRehearsal {
   start_time: string | null;
   location: string | null;
   notes: string | null;
+  timezone: string | null;
   display_order: number;
   created_at: Timestamp;
 }

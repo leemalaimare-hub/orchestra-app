@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/Modal';
+import { TemplateTypeTabs } from '@/components/templates/TemplateTypeTabs';
 import type { EmailTemplateWithMeta } from '@/types';
 
 // ─── Row-level "..." context menu ─────────────────────────────────────────────
@@ -170,6 +171,8 @@ export function TemplatesClient() {
           <Button><Plus className="h-4 w-4" /> New Template</Button>
         </Link>
       </div>
+
+      <TemplateTypeTabs active="email" />
 
       {/* ── Toolbar (search + bulk actions) ── */}
       <div className="mt-5 flex items-center gap-3">

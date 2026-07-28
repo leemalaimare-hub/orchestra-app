@@ -11,6 +11,9 @@ export interface TemplateVariables {
   venue: string;
   deadline: string;          // formatted deadline
   organization_name: string;
+  pay_rate: string;          // formatted pay per service, e.g. "$120"
+  rehearsal_schedule: string; // formatted multi-line rehearsal list
+  event_timezone: string;    // e.g. "EST"
 }
 
 export const TEMPLATE_VARIABLES: { key: keyof TemplateVariables; description: string }[] = [
@@ -22,6 +25,9 @@ export const TEMPLATE_VARIABLES: { key: keyof TemplateVariables; description: st
   { key: 'venue', description: 'Concert venue' },
   { key: 'deadline', description: 'Response deadline date and time' },
   { key: 'organization_name', description: 'Your orchestra name' },
+  { key: 'pay_rate', description: 'Pay per service for this position (e.g. $120)' },
+  { key: 'rehearsal_schedule', description: 'Rehearsal dates, times, and locations' },
+  { key: 'event_timezone', description: 'Timezone abbreviation for the event (e.g. EST)' },
 ];
 
 interface RenderOptions {
@@ -64,6 +70,9 @@ export const SAMPLE_VARIABLES: TemplateVariables = {
   venue: 'Van Wezel Performing Arts Hall',
   deadline: 'Wednesday, November 5, 2025 at 5:00 PM',
   organization_name: 'Sarasota Orchestra',
+  pay_rate: '$120',
+  rehearsal_schedule: 'Wed, Nov 5 at 7:00 PM — Main Rehearsal Hall\nThu, Nov 6 at 7:00 PM — Main Rehearsal Hall',
+  event_timezone: 'EST',
 };
 
 /** Renders the template with sample data — used by the preview modal. */

@@ -72,7 +72,42 @@ async function loadPositionContext(admin: Admin, concertPositionId: string) {
     const { data } = await admin.from('email_templates').select('*').eq('id', position.template_id).maybeSingle();
     template = data;
   }
-  return { position, concert, organization, template };
+  let payRate = null;
+  if (position.pay_rate_id) {
+    const { data } = await admin.from('pay_rates').select('*').eq('id', position.pay_rate_id).maybeSingle();
+    payRate = data;
+  }
+  const { data: rehearsals } = await admin
+    .from('concert_rehearsals').select('*').eq('concert_id', concert.id).order('display_order');
+  return { position, concert, organization, template, payRate, rehearsals: rehearsals ?? [] };
+}
+
+function formatPayRate(payRate: { name: string; amount: number; currency: string } | null): string {
+  if (!payRate) return '';
+  const amount = new Intl.NumberFormat('en-US', { style: 'currency', currency: payRate.currency }).format(payRate.amount);
+  return `${amount} (${payRate.name})`;
+}
+
+function tzAbbrev(tz: string | null | undefined): string {
+  if (!tz) return '';
+  try {
+    const parts = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'short' }).formatToParts(new Date());
+    return parts.find((p) => p.type === 'timeZoneName')?.value ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function formatRehearsalSchedule(
+  rehearsals: { date: string; start_time: string | null; location: string | null; timezone: string | null }[],
+): string {
+  if (rehearsals.length === 0) return '';
+  return rehearsals.map((r) => {
+    const d = format(new Date(r.date + 'T00:00:00'), 'EEE, MMM d, yyyy');
+    const time = r.start_time ? ` at ${r.start_time}${r.timezone ? ` ${tzAbbrev(r.timezone)}` : ''}` : '';
+    const loc = r.location ? ` — ${r.location}` : '';
+    return `${d}${time}${loc}`;
+  }).join('\n');
 }
 
 async function fetchAttachments(admin: Admin, templateId: string | null): Promise<EmailAttachment[]> {
@@ -181,6 +216,9 @@ async function broadcastSend(
         venue: ctx.concert.venue ?? '',
         deadline: deadlineStr,
         organization_name: ctx.organization.name,
+        pay_rate: formatPayRate(ctx.payRate),
+        rehearsal_schedule: formatRehearsalSchedule(ctx.rehearsals),
+        event_timezone: tzAbbrev(ctx.concert.event_timezone),
       },
       { missing: 'blank' },
     );
@@ -374,6 +412,9 @@ export async function sendToNextMusician(
       venue: ctx.concert.venue ?? '',
       deadline: deadlineStr,
       organization_name: ctx.organization.name,
+      pay_rate: formatPayRate(ctx.payRate),
+      rehearsal_schedule: formatRehearsalSchedule(ctx.rehearsals),
+      event_timezone: tzAbbrev(ctx.concert.event_timezone),
     },
     { missing: 'blank' },
   );

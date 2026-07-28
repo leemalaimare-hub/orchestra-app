@@ -7,9 +7,9 @@ import { toast } from 'sonner';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import type { Concert, ConcertRehearsal, EmailTemplate, ProjectStatus } from '@/types';
+import type { Concert, ConcertRehearsal, ConcertTemplateWithPositions, EmailTemplate, ProjectStatus } from '@/types';
 
-interface DraftRehearsal { date: string; start_time: string; location: string; notes: string }
+interface DraftRehearsal { date: string; start_time: string; location: string; notes: string; timezone: string }
 
 const schema = z.object({
   name: z.string().min(1, 'Project name is required').max(200),
@@ -22,12 +22,21 @@ const STATUS_OPTIONS: { value: ProjectStatus; label: string; desc: string }[] = 
   { value: 'cancelled',label: 'Cancelled',desc: 'Project cancelled' },
 ];
 
-const DEADLINE_PRESETS = [
-  { hours: 24,  label: '24 hours' },
-  { hours: 48,  label: '48 hours' },
-  { hours: 72,  label: '72 hours' },
-  { hours: 168, label: '1 week' },
+const COMMON_TIMEZONES = [
+  'America/New_York', 'America/Chicago', 'America/Denver', 'America/Phoenix',
+  'America/Los_Angeles', 'America/Anchorage', 'Pacific/Honolulu',
 ];
+const ALL_TIMEZONES: string[] = (() => {
+  try {
+    const all = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+    return all.length > 0 ? all : COMMON_TIMEZONES;
+  } catch {
+    return COMMON_TIMEZONES;
+  }
+})();
+function detectTimezone(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return 'America/New_York'; }
+}
 
 function VariableEditor({
   variables,
@@ -101,26 +110,30 @@ export function ConcertForm({ concert }: { concert?: Concert & { rehearsals?: Co
   const [name, setName] = useState(concert?.name ?? '');
   const [notes, setNotes] = useState(concert?.notes ?? '');
   const [templateId, setTemplateId] = useState<string>(concert?.template_id ?? '');
-  const [deadlineHours, setDeadlineHours] = useState(concert?.accept_deadline_hours ?? 48);
-  const [deadlineText, setDeadlineText] = useState(concert?.accept_deadline_text ?? '');
   const [customVariables, setCustomVariables] = useState<Record<string, string>>(
     concert?.custom_variables ?? {}
   );
   const [status, setStatus] = useState<ProjectStatus>(concert?.status ?? 'draft');
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [concertTemplates, setConcertTemplates] = useState<ConcertTemplateWithPositions[]>([]);
+  const [startFromTemplateId, setStartFromTemplateId] = useState('');
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [eventDate, setEventDate] = useState(concert?.dates?.[0] ?? '');
   const [eventTime, setEventTime] = useState(concert?.event_time ?? '');
+  const [eventTimezone, setEventTimezone] = useState(concert?.event_timezone ?? detectTimezone());
   const [venue, setVenue] = useState(concert?.venue ?? '');
   const [rehearsals, setRehearsals] = useState<DraftRehearsal[]>(
     (concert?.rehearsals ?? []).map((r) => ({
       date: r.date, start_time: r.start_time ?? '', location: r.location ?? '', notes: r.notes ?? '',
+      timezone: r.timezone ?? '',
     }))
   );
 
-  const addRehearsal = () => setRehearsals((r) => [...r, { date: '', start_time: '', location: '', notes: '' }]);
+  const addRehearsal = () => setRehearsals((r) => [
+    ...r, { date: '', start_time: '', location: venue, notes: '', timezone: eventTimezone },
+  ]);
   const removeRehearsal = (idx: number) => setRehearsals((r) => r.filter((_, i) => i !== idx));
   const updateRehearsal = (idx: number, patch: Partial<DraftRehearsal>) =>
     setRehearsals((r) => r.map((row, i) => (i === idx ? { ...row, ...patch } : row)));
@@ -130,6 +143,13 @@ export function ConcertForm({ concert }: { concert?: Concert & { rehearsals?: Co
       .then((r) => r.json())
       .then((d) => setTemplates(d.templates ?? []))
       .catch(() => {});
+    if (!isEdit) {
+      fetch('/api/concert-templates')
+        .then((r) => r.json())
+        .then((d) => setConcertTemplates(d.templates ?? []))
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const save = async (thenAddPositions: boolean) => {
@@ -151,14 +171,14 @@ export function ConcertForm({ concert }: { concert?: Concert & { rehearsals?: Co
         name,
         notes: notes || null,
         template_id: templateId || null,
-        accept_deadline_hours: deadlineHours,
-        accept_deadline_text: deadlineText || null,
         custom_variables: customVariables,
         dates: eventDate ? [eventDate] : null,
         event_time: eventTime || null,
+        event_timezone: eventTimezone || null,
         venue: venue || null,
         rehearsals: rehearsals.map((r) => ({
           date: r.date, start_time: r.start_time || null, location: r.location || null, notes: r.notes || null,
+          timezone: r.timezone || null,
         })),
         ...(isEdit ? { status } : {}),
       };
@@ -180,9 +200,18 @@ export function ConcertForm({ concert }: { concert?: Concert & { rehearsals?: Co
         const b = await res.json();
         if (!res.ok) { toast.error(b.error || 'Save failed'); return; }
         projectId = b.concert.id;
+
+        if (startFromTemplateId && projectId) {
+          const posRes = await fetch(`/api/concerts/${projectId}/positions/from-template`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ concert_template_id: startFromTemplateId }),
+          });
+          if (!posRes.ok) toast.error('Concert created, but failed to load positions from the template');
+        }
       }
       toast.success(isEdit ? 'Concert updated' : 'Concert created');
-      router.push(thenAddPositions ? `/dashboard/email/view/${projectId}` : '/dashboard/concerts');
+      router.push((thenAddPositions || startFromTemplateId) ? `/dashboard/email/view/${projectId}` : '/dashboard/concerts');
       router.refresh();
     } finally {
       setSaving(false);
@@ -225,10 +254,32 @@ export function ConcertForm({ concert }: { concert?: Concert & { rehearsals?: Co
           </div>
         </section>
 
+        {/* Start from a Concert Template (create only) */}
+        {!isEdit && concertTemplates.length > 0 && (
+          <section className="rounded-lg border border-slate-200 bg-white p-5">
+            <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Start From a Concert Template
+            </h2>
+            <p className="mb-2 text-xs text-slate-500">
+              Optional — pre-fills the instrumentation (positions + seat counts) from a saved blueprint.
+            </p>
+            <select
+              value={startFromTemplateId}
+              onChange={(e) => setStartFromTemplateId(e.target.value)}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">None — build instrumentation manually</option>
+              {concertTemplates.map((t) => (
+                <option key={t.id} value={t.id}>{t.name} ({t.positions.length} positions)</option>
+              ))}
+            </select>
+          </section>
+        )}
+
         {/* Event details */}
         <section className="rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Event</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Date</label>
               <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)}
@@ -238,6 +289,13 @@ export function ConcertForm({ concert }: { concert?: Concert & { rehearsals?: Co
               <label className="mb-1 block text-sm font-medium text-slate-700">Time</label>
               <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)}
                 className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Timezone</label>
+              <select value={eventTimezone} onChange={(e) => setEventTimezone(e.target.value)}
+                className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                {ALL_TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>)}
+              </select>
             </div>
           </div>
           <div className="mt-3">
@@ -273,6 +331,13 @@ export function ConcertForm({ concert }: { concert?: Concert & { rehearsals?: Co
                     onChange={(e) => updateRehearsal(i, { location: e.target.value })}
                     className="w-full rounded border border-slate-300 px-2 py-1 text-sm" />
                 </div>
+                <div>
+                  <label className="block text-xs text-slate-500">Timezone</label>
+                  <select value={r.timezone || eventTimezone} onChange={(e) => updateRehearsal(i, { timezone: e.target.value })}
+                    className="rounded border border-slate-300 px-2 py-1 text-sm">
+                    {ALL_TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>)}
+                  </select>
+                </div>
                 <button type="button" onClick={() => removeRehearsal(i)} className="p-1 text-slate-400 hover:text-red-600">
                   <X className="h-4 w-4" />
                 </button>
@@ -299,56 +364,6 @@ export function ConcertForm({ concert }: { concert?: Concert & { rehearsals?: Co
               </option>
             ))}
           </select>
-        </section>
-
-        {/* Deadline */}
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Accept Deadline
-          </h2>
-          <p className="mb-3 text-xs text-slate-500">
-            How long to wait for a response before automatically moving to the next person.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {DEADLINE_PRESETS.map((p) => (
-              <button
-                key={p.hours}
-                type="button"
-                onClick={() => setDeadlineHours(p.hours)}
-                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-                  deadlineHours === p.hours
-                    ? 'border-indigo-600 bg-indigo-600 text-white'
-                    : 'border-slate-300 text-slate-600 hover:border-indigo-300'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-            <div className="flex items-center gap-1.5">
-              <input
-                type="number"
-                min={1}
-                max={8760}
-                value={deadlineHours}
-                onChange={(e) => setDeadlineHours(Number(e.target.value))}
-                className="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-              />
-              <span className="text-sm text-slate-500">hours custom</span>
-            </div>
-          </div>
-          <div className="mt-3">
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Deadline sentence for emails
-              <span className="ml-1 text-xs font-normal text-slate-400">optional — use {'{{accept_deadline}}'} in template</span>
-            </label>
-            <input
-              type="text"
-              value={deadlineText}
-              onChange={(e) => setDeadlineText(e.target.value)}
-              placeholder={`e.g. Please respond by ${new Date(Date.now() + deadlineHours * 3600000).toLocaleDateString()}`}
-              className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
-          </div>
         </section>
 
         {/* Custom variables */}

@@ -14,6 +14,7 @@ const schema = z.object({
   auto_resend_days: z.number().int().min(0).max(60).nullable().optional(),
   send_mode: z.enum(['cascade', 'broadcast']).optional().default('cascade'),
   position_group_label: z.string().max(120).nullable().optional(),
+  pay_rate_id: z.string().uuid().nullable().optional(),
   // Ordered musician list from the modal (after manual reorder/removal).
   // If omitted, the org master list for position_name is snapshotted.
   musician_ids: z.array(z.string().uuid()).optional(),
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       auto_resend_days: body.auto_resend_days ?? 0,
       send_mode: body.send_mode ?? 'cascade',
       position_group_label: body.position_group_label ?? null,
+      pay_rate_id: body.pay_rate_id ?? null,
       status: 'pending',
     })
     .select()

@@ -27,6 +27,7 @@ const settingsSubNav = [
   { href: '/dashboard/settings/managers',     label: 'Managers' },
   { href: '/dashboard/settings/email',        label: 'Email' },
   { href: '/dashboard/settings/notifications',label: 'Notifications' },
+  { href: '/dashboard/pay-rates',             label: 'Pay Rates' },
   { href: '/dashboard/settings/billing',      label: 'Billing' },
   { href: '/dashboard/settings/activity',     label: 'Activity' },
 ];
@@ -68,7 +69,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const inContacts = pathname.startsWith('/dashboard/musicians') ||
                      pathname.startsWith('/dashboard/groups') ||
                      pathname.startsWith('/dashboard/positions');
-  const inSettings = pathname.startsWith('/dashboard/settings');
+  const inSettings = pathname.startsWith('/dashboard/settings') || pathname.startsWith('/dashboard/pay-rates');
 
   return (
     <>

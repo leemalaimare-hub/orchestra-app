@@ -7,6 +7,7 @@ const rehearsalSchema = z.object({
   start_time: z.string().nullable().optional(),
   location: z.string().max(300).nullable().optional(),
   notes: z.string().max(1000).nullable().optional(),
+  timezone: z.string().max(100).nullable().optional(),
 });
 
 const updateSchema = z.object({
@@ -19,6 +20,7 @@ const updateSchema = z.object({
   status: z.enum(['draft', 'active', 'filled', 'completed', 'cancelled']).optional(),
   dates: z.array(z.string()).nullable().optional(),
   event_time: z.string().nullable().optional(),
+  event_timezone: z.string().max(100).nullable().optional(),
   venue: z.string().max(300).nullable().optional(),
   rehearsals: z.array(rehearsalSchema).optional(),
 });
@@ -67,6 +69,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           start_time: r.start_time || null,
           location: r.location || null,
           notes: r.notes || null,
+          timezone: r.timezone || null,
           display_order: i,
         })),
       );

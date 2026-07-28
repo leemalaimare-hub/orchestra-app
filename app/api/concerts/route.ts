@@ -9,6 +9,7 @@ const rehearsalSchema = z.object({
   start_time: z.string().nullable().optional(),
   location: z.string().max(300).nullable().optional(),
   notes: z.string().max(1000).nullable().optional(),
+  timezone: z.string().max(100).nullable().optional(),
 });
 
 const createSchema = z.object({
@@ -20,17 +21,19 @@ const createSchema = z.object({
   custom_variables: z.record(z.string(), z.string()).optional(),
   dates: z.array(z.string()).nullable().optional(),
   event_time: z.string().nullable().optional(),
+  event_timezone: z.string().max(100).nullable().optional(),
   venue: z.string().max(300).nullable().optional(),
   rehearsals: z.array(rehearsalSchema).optional(),
 });
 
-// GET /api/concerts?status=&include_positions=&page=&limit=
+// GET /api/concerts?status=&origin=&include_positions=&page=&limit=
 export async function GET(req: NextRequest) {
   const ctx = await getCurrentManager();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const sp = req.nextUrl.searchParams;
   const status = sp.get('status');
+  const origin = sp.get('origin');
   const includePositions = sp.get('include_positions') === 'true';
   const page = Math.max(1, parseInt(sp.get('page') ?? '1', 10));
   const limit = Math.min(100, Math.max(1, parseInt(sp.get('limit') ?? '20', 10)));
@@ -43,6 +46,7 @@ export async function GET(req: NextRequest) {
     .order('updated_at', { ascending: false })
     .range((page - 1) * limit, page * limit - 1);
   if (status) query = query.eq('status', status);
+  if (origin) query = query.eq('origin', origin);
 
   const { data: concerts, count, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -88,7 +92,9 @@ export async function POST(req: NextRequest) {
       custom_variables: body.custom_variables ?? {},
       dates: body.dates ?? null,
       event_time: body.event_time ?? null,
+      event_timezone: body.event_timezone ?? null,
       venue: body.venue ?? null,
+      origin: 'concert',
       status: 'draft',
     })
     .select()
@@ -103,6 +109,7 @@ export async function POST(req: NextRequest) {
         start_time: r.start_time || null,
         location: r.location || null,
         notes: r.notes || null,
+        timezone: r.timezone || null,
         display_order: i,
       })),
     );
