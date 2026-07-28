@@ -435,21 +435,6 @@ export function AddEditMusician({
             <Plus className="h-3.5 w-3.5" /> Add custom field
           </button>
         )}
-        {fieldDefs.length === 0 && showAddField && (
-          <div className="rounded-md border border-slate-200 p-3">
-            <p className="mb-2 text-sm font-medium text-slate-700 flex items-center gap-1.5">
-              <Settings2 className="h-3.5 w-3.5 text-slate-400" /> Custom Fields
-            </p>
-            <AddFieldForm
-              onAdd={(newDef) => {
-                setFieldDefs([newDef]);
-                setShowAddField(false);
-              }}
-              onCancel={() => setShowAddField(false)}
-            />
-          </div>
-        )}
-
         {/* Do not contact */}
         <label className="flex items-center gap-3 rounded-md border border-slate-200 p-3">
           <input type="checkbox" checked={blacklisted} onChange={toggleBlacklist} className="h-4 w-4" />

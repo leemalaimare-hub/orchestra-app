@@ -483,11 +483,34 @@ export async function processResponse(
   const musicianName = musician ? `${musician.first_name} ${musician.last_name}` : 'A musician';
 
   if (response === 'accepted') {
-    if (sendLog.concert_position_id) {
-      await admin.from('concert_positions').update({ status: 'filled' }).eq('id', sendLog.concert_position_id);
+    // A position may need more than one seat filled (e.g. "Violin 1: 8 seats") — only
+    // close it out once enough recipients have accepted, not on the very first accept.
+    let seatsRemaining = 0;
+    let positionFilled = false;
+    if (sendLog.concert_position_id && ctx) {
+      const { count: acceptedCount } = await admin
+        .from('concert_position_musicians')
+        .select('id', { count: 'exact', head: true })
+        .eq('concert_position_id', sendLog.concert_position_id)
+        .eq('status', 'accepted');
+      const needed = ctx.position.musicians_needed ?? 1;
+      seatsRemaining = Math.max(0, needed - (acceptedCount ?? 0));
+      positionFilled = seatsRemaining <= 0;
+      if (positionFilled) {
+        await admin.from('concert_positions').update({ status: 'filled' }).eq('id', sendLog.concert_position_id);
+      }
     }
     if (ctx && ctx.concert.status === 'draft') {
       await admin.from('concerts').update({ status: 'active' }).eq('id', ctx.concert.id);
+    }
+    // Once every position on this concert is filled, mark the concert itself completed.
+    if (ctx && positionFilled) {
+      const { data: positions } = await admin
+        .from('concert_positions').select('status').eq('concert_id', ctx.concert.id);
+      const allFilled = (positions ?? []).length > 0 && (positions ?? []).every((p) => p.status === 'filled');
+      if (allFilled) {
+        await admin.from('concerts').update({ status: 'completed' }).eq('id', ctx.concert.id);
+      }
     }
     if (ctx && sendLog.manager_id && musician) {
       await notifyAccepted({
@@ -499,11 +522,12 @@ export async function processResponse(
         concertName: ctx.concert.name,
         concertDate: formatConcertDates(ctx.concert.dates),
         concertId: ctx.concert.id,
+        seatsRemaining: positionFilled ? 0 : seatsRemaining,
       });
     }
 
-    // Broadcast mode: expire all other pending send_logs and notify other recipients
-    if (ctx && ctx.position.send_mode === 'broadcast') {
+    // Broadcast mode: once every seat is filled, expire remaining pending send_logs.
+    if (ctx && ctx.position.send_mode === 'broadcast' && positionFilled) {
       const { data: otherLogs } = await admin
         .from('send_logs')
         .select('id, token, musician_id')
@@ -549,6 +573,13 @@ export async function processResponse(
           }
         }
       }
+    }
+
+    // Cascade mode: if seats remain open, keep advancing to the next musician on the list —
+    // mirrors the decline auto-resend path below.
+    if (ctx && ctx.position.send_mode !== 'broadcast' && !positionFilled
+        && ctx.position.auto_resend_enabled && sendLog.manager_id && sendLog.concert_position_id) {
+      await sendToNextMusician(sendLog.concert_position_id, sendLog.manager_id, 'decline');
     }
 
     if (ctx) {

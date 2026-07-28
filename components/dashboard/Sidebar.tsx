@@ -14,6 +14,7 @@ const emailSubNav = [
 const contactsSubNav = [
   { href: '/dashboard/musicians', label: 'All Contacts' },
   { href: '/dashboard/groups',    label: 'Groups' },
+  { href: '/dashboard/positions', label: 'Positions' },
 ];
 
 const settingsSubNav = [
@@ -59,7 +60,8 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const inEmail    = pathname.startsWith('/dashboard/email') ||
                      pathname.startsWith('/dashboard/templates');
   const inContacts = pathname.startsWith('/dashboard/musicians') ||
-                     pathname.startsWith('/dashboard/groups');
+                     pathname.startsWith('/dashboard/groups') ||
+                     pathname.startsWith('/dashboard/positions');
   const inSettings = pathname.startsWith('/dashboard/settings');
 
   return (

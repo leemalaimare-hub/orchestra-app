@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { TemplateSelector } from '@/components/templates/TemplateSelector';
 import { TemplatePreviewModal } from '@/components/templates/TemplatePreviewModal';
-import type { ConcertPosition, EmailTemplateWithMeta } from '@/types';
+import type { ConcertPosition, EmailTemplateWithMeta, PositionDefinition } from '@/types';
 
 interface MusicianRow {
   key: string;            // dnd id
@@ -70,10 +70,17 @@ export function AddEditPositionModal({ open, onClose, onSaved, concertId, positi
   const [deadlineDate, setDeadlineDate] = useState('');
   const [noResponseMode, setNoResponseMode] = useState<'auto' | 'notify'>('notify');
   const [autoResendDays, setAutoResendDays] = useState(0);
+  const [broadcast, setBroadcast] = useState(false);
   const [musicians, setMusicians] = useState<MusicianRow[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [libraryPositions, setLibraryPositions] = useState<PositionDefinition[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    fetch('/api/positions-library').then((r) => r.json()).then((d) => setLibraryPositions(d.positions ?? [])).catch(() => {});
+  }, [open]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -92,6 +99,7 @@ export function AddEditPositionModal({ open, onClose, onSaved, concertId, positi
       setDeadlineDate(position.response_deadline_date?.slice(0, 16) ?? '');
       setNoResponseMode(position.auto_resend_enabled ? 'auto' : 'notify');
       setAutoResendDays(position.auto_resend_days ?? 0);
+      setBroadcast(position.send_mode === 'broadcast');
       // load existing position musician list
       setLoadingList(true);
       fetch(`/api/concerts/${concertId}/positions/${position.id}/musicians`)
@@ -108,7 +116,7 @@ export function AddEditPositionModal({ open, onClose, onSaved, concertId, positi
     } else {
       setPositionName(''); setNeeded(1); setTemplateId(undefined); setSelectedTemplate(null);
       setDeadlineType('days'); setDeadlineDays(2); setDeadlineDate('');
-      setNoResponseMode('notify'); setAutoResendDays(0); setMusicians([]);
+      setNoResponseMode('notify'); setAutoResendDays(0); setBroadcast(false); setMusicians([]);
     }
   }, [open, position, concertId]);
 
@@ -161,6 +169,7 @@ export function AddEditPositionModal({ open, onClose, onSaved, concertId, positi
           ? new Date(deadlineDate).toISOString() : null,
         auto_resend_enabled: noResponseMode === 'auto',
         auto_resend_days: noResponseMode === 'auto' ? autoResendDays : 0,
+        send_mode: broadcast ? 'broadcast' as const : 'cascade' as const,
       };
 
       if (isEdit) {
@@ -198,14 +207,21 @@ export function AddEditPositionModal({ open, onClose, onSaved, concertId, positi
         {/* Section 1 — details */}
         <section className="space-y-3">
           <div>
-            <Input label="Position Name" list="existing-positions" placeholder="e.g. Violin"
+            <Input label="Position Name" list="existing-positions" placeholder="e.g. Violin 1"
               value={positionName} onChange={(e) => setPositionName(e.target.value)} />
             <datalist id="existing-positions">
-              {existingPositionNames.map((p) => <option key={p} value={p} />)}
+              {[...new Set([...existingPositionNames, ...libraryPositions.map((p) => p.name)])].map((p) => (
+                <option key={p} value={p} />
+              ))}
             </datalist>
           </div>
-          <Input label="How many contacts do you need for this position?" type="number" min={1} max={20}
+          <Input label="How many seats do you need for this position?" type="number" min={1} max={20}
             value={needed} onChange={(e) => setNeeded(Number(e.target.value))} />
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" checked={broadcast} onChange={(e) => setBroadcast(e.target.checked)}
+              className="h-3.5 w-3.5 rounded accent-amber-500" />
+            📡 Broadcast — email everyone at once instead of one-by-one cascade
+          </label>
         </section>
 
         {/* Section 2 — template */}

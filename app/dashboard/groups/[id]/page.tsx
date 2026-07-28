@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, Trash2, ArrowUp, ArrowDown, Search, UserPlus } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ArrowUp, ArrowDown, Search, UserPlus, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
+import { ImportMembersModal } from '@/components/groups/ImportMembersModal';
 import type { RecipientGroup, RecipientGroupMember, Musician } from '@/types';
 
 interface GroupDetail extends RecipientGroup {
@@ -178,6 +179,7 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
   const [group, setGroup] = useState<GroupDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<RecipientGroupMember | null>(null);
   const [reordering, setReordering] = useState(false);
 
@@ -242,9 +244,14 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
             {members.length} contact{members.length === 1 ? '' : 's'} · cascade starts from #1
           </p>
         </div>
-        <Button onClick={() => setAddOpen(true)}>
-          <UserPlus className="h-4 w-4" /> Add Contact
-        </Button>
+        <div className="flex shrink-0 gap-2">
+          <Button variant="secondary" onClick={() => setImportOpen(true)}>
+            <FileSpreadsheet className="h-4 w-4" /> Import
+          </Button>
+          <Button onClick={() => setAddOpen(true)}>
+            <UserPlus className="h-4 w-4" /> Add Contact
+          </Button>
+        </div>
       </div>
 
       {/* Sequence */}
@@ -253,11 +260,16 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
           <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center">
             <p className="font-medium text-slate-600">No contacts in this group yet</p>
             <p className="mt-1 text-sm text-slate-400">
-              Add contacts from your list or enter them manually.
+              Add contacts from your list, enter them manually, or import a spreadsheet.
             </p>
-            <Button className="mt-4" onClick={() => setAddOpen(true)}>
-              <UserPlus className="h-4 w-4" /> Add Contact
-            </Button>
+            <div className="mt-4 flex justify-center gap-2">
+              <Button variant="secondary" onClick={() => setImportOpen(true)}>
+                <FileSpreadsheet className="h-4 w-4" /> Import
+              </Button>
+              <Button onClick={() => setAddOpen(true)}>
+                <UserPlus className="h-4 w-4" /> Add Contact
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -321,6 +333,13 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
         onClose={() => setAddOpen(false)}
         groupId={params.id}
         onAdded={load}
+      />
+
+      <ImportMembersModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        groupId={params.id}
+        onImported={load}
       />
 
       <ConfirmDialog

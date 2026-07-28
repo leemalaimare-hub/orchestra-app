@@ -11,6 +11,8 @@ const updateSchema = z.object({
   response_deadline_date: z.string().nullable().optional(),
   auto_resend_enabled: z.boolean().optional(),
   auto_resend_days: z.number().int().min(0).max(60).nullable().optional(),
+  send_mode: z.enum(['cascade', 'broadcast']).optional(),
+  position_group_label: z.string().max(120).nullable().optional(),
   status: z.enum(['pending', 'active', 'filled', 'exhausted', 'cancelled']).optional(),
 });
 

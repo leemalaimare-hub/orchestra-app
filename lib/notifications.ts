@@ -169,26 +169,35 @@ async function dispatch(params: {
   }
 }
 
-const concertUrl = (id: string) => `${appUrl()}/dashboard/concerts/${id}`;
+const concertUrl = (id: string) => `${appUrl()}/dashboard/email/view/${id}`;
 
 // ---------- send-event notifications ----------
 export async function notifyAccepted(params: {
   organizationId: string; managerId: string; musicianName: string; musicianEmail: string;
   positionName: string; concertName: string; concertDate: string; concertId: string;
+  seatsRemaining?: number;
 }): Promise<void> {
+  const stillOpen = (params.seatsRemaining ?? 0) > 0;
+  const seatsNote = stillOpen
+    ? ` ${params.seatsRemaining} seat${params.seatsRemaining === 1 ? '' : 's'} still open for this position.`
+    : '';
   await dispatch({
     organizationId: params.organizationId,
     managerId: params.managerId,
     type: 'send_accepted',
-    title: `${params.positionName} filled — ${params.concertName}`,
-    message: `${params.musicianName} has accepted.`,
-    actionUrl: `/dashboard/concerts/${params.concertId}`,
+    title: stillOpen
+      ? `${params.positionName} — accepted, ${params.seatsRemaining} seat${params.seatsRemaining === 1 ? '' : 's'} left — ${params.concertName}`
+      : `${params.positionName} filled — ${params.concertName}`,
+    message: `${params.musicianName} has accepted.${seatsNote}`,
+    actionUrl: `/dashboard/email/view/${params.concertId}`,
     metadata: { musicianName: params.musicianName, musicianEmail: params.musicianEmail,
       positionName: params.positionName, concertName: params.concertName },
-    emailSubject: `✓ ${params.concertName} — ${params.positionName} has been filled`,
+    emailSubject: stillOpen
+      ? `✓ ${params.concertName} — ${params.musicianName} accepted ${params.positionName}`
+      : `✓ ${params.concertName} — ${params.positionName} has been filled`,
     emailParagraphs: [
       'Great news!',
-      `${params.musicianName} has accepted the ${params.positionName} position for ${params.concertName} on ${params.concertDate}.`,
+      `${params.musicianName} has accepted the ${params.positionName} position for ${params.concertName} on ${params.concertDate}.${seatsNote}`,
       'You can reply directly to this email to contact them.',
     ],
     emailButtons: [{ label: 'View Concert', url: concertUrl(params.concertId) }],
@@ -216,7 +225,7 @@ export async function notifyDeclined(params: {
     type: 'send_declined',
     title: `${params.musicianName} declined ${params.positionName} — ${params.concertName}`,
     message: inappMsg,
-    actionUrl: `/dashboard/concerts/${params.concertId}`,
+    actionUrl: `/dashboard/email/view/${params.concertId}`,
     emailSubject: `${params.concertName} — ${params.musicianName} declined ${params.positionName}`,
     emailParagraphs: [
       `${params.musicianName} has declined the ${params.positionName} position for ${params.concertName}.`,
@@ -240,7 +249,7 @@ export async function notifyNoResponse(params: {
     type: 'send_no_response',
     title: `No response from ${params.musicianName} — ${params.concertName}`,
     message: inappMsg,
-    actionUrl: `/dashboard/concerts/${params.concertId}`,
+    actionUrl: `/dashboard/email/view/${params.concertId}`,
     emailSubject: `${params.concertName} — No response from ${params.musicianName} for ${params.positionName}`,
     emailParagraphs: [
       `${params.musicianName} did not respond to the ${params.positionName} request for ${params.concertName} by the deadline.`,
@@ -260,7 +269,7 @@ export async function notifyExhausted(params: {
     type: 'position_exhausted',
     title: `No musicians available — ${params.positionName} for ${params.concertName}`,
     message: `All ${params.totalContacted} musicians contacted. None available.`,
-    actionUrl: `/dashboard/concerts/${params.concertId}`,
+    actionUrl: `/dashboard/email/view/${params.concertId}`,
     emailSubject: `⚠ ${params.concertName} — No musicians available for ${params.positionName}`,
     emailParagraphs: [
       `All ${params.totalContacted} musicians on your list for ${params.positionName} have been contacted for ${params.concertName}, but none are available.`,

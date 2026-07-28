@@ -25,10 +25,13 @@ export function buildMimeMessage(params: {
   const boundary = `bndry_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
   const hasAttachments = !!params.attachments && params.attachments.length > 0;
 
+  const fromDomain = params.from.split('@')[1] || 'callscade.com';
   const headers: string[] = [
     `From: ${params.from}`,
     `To: ${params.to}`,
     `Subject: ${encodeHeader(params.subject)}`,
+    `Date: ${new Date().toUTCString()}`,
+    `Message-ID: <${Date.now()}.${Math.random().toString(36).slice(2)}@${fromDomain}>`,
     'MIME-Version: 1.0',
   ];
   if (params.replyTo) headers.push(`Reply-To: ${params.replyTo}`);

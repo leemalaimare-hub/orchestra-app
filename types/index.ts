@@ -212,6 +212,8 @@ export interface RecipientGroupWithCount extends RecipientGroup {
   member_count: number;
 }
 
+export type SendMode = 'cascade' | 'broadcast';
+
 export interface ConcertPosition {
   id: UUID;
   concert_id: UUID;
@@ -223,9 +225,21 @@ export interface ConcertPosition {
   response_deadline_date: Timestamp | null;
   auto_resend_enabled: boolean;
   auto_resend_days: number | null;
+  send_mode: SendMode;
+  position_group_label: string | null;
   status: ConcertPositionStatus;
   created_at: Timestamp;
   updated_at: Timestamp;
+}
+
+export interface PositionDefinition {
+  id: UUID;
+  organization_id: UUID;
+  name: string;
+  section: string | null;
+  display_order: number;
+  default_group_id: UUID | null;
+  created_at: Timestamp;
 }
 
 export interface ConcertPositionMusician {

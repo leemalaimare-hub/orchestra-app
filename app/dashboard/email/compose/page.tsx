@@ -462,6 +462,7 @@ export default function ComposePage() {
   const [autoSavedAt, setAutoSavedAt] = useState<Date | null>(null);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(draftId);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const autoSaveInFlightRef = useRef<Promise<void> | null>(null);
 
   // Load templates + groups
   useEffect(() => {
@@ -519,33 +520,37 @@ export default function ComposePage() {
     if (!subject.trim() && recipients.length === 0) return; // nothing worth saving yet
 
     clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(async () => {
-      try {
-        const res = await fetch('/api/email/compose-send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            subject: subject || '(Untitled draft)',
-            body: body || '<p></p>',
-            recipients: recipients.map((r) => ({ musician_id: r.musician_id, name: r.name, email: r.email, rank: r.rank })),
-            template_id: templateId || null,
-            accept_deadline_hours: hasDeadline ? (deadlineHours ?? 48) : null,
-            send_mode: broadcast ? 'broadcast' : 'cascade',
-            filled_message: broadcast ? filledMessage : undefined,
-            save_as_draft: true,
-            draft_project_id: currentDraftId || null,
-          }),
-        });
-        const data = await res.json();
-        if (res.ok && data.project_id) {
-          setCurrentDraftId(data.project_id);
-          setAutoSavedAt(new Date());
-          // Update URL without page reload so refreshing keeps the draft
-          window.history.replaceState(null, '', `/dashboard/email/compose?draft=${data.project_id}`);
+    autoSaveTimerRef.current = setTimeout(() => {
+      autoSaveInFlightRef.current = (async () => {
+        try {
+          const res = await fetch('/api/email/compose-send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subject: subject || '(Untitled draft)',
+              body: body || '<p></p>',
+              recipients: recipients.map((r) => ({ musician_id: r.musician_id, name: r.name, email: r.email, rank: r.rank })),
+              template_id: templateId || null,
+              accept_deadline_hours: hasDeadline ? (deadlineHours ?? 48) : null,
+              send_mode: broadcast ? 'broadcast' : 'cascade',
+              filled_message: broadcast ? filledMessage : undefined,
+              save_as_draft: true,
+              draft_project_id: currentDraftId || null,
+            }),
+          });
+          const data = await res.json();
+          if (res.ok && data.project_id) {
+            setCurrentDraftId(data.project_id);
+            setAutoSavedAt(new Date());
+            // Update URL without page reload so refreshing keeps the draft
+            window.history.replaceState(null, '', `/dashboard/email/compose?draft=${data.project_id}`);
+          }
+        } catch {
+          // Silent fail — auto-save is best-effort
+        } finally {
+          autoSaveInFlightRef.current = null;
         }
-      } catch {
-        // Silent fail — auto-save is best-effort
-      }
+      })();
     }, 3000);
 
     return () => clearTimeout(autoSaveTimerRef.current);
@@ -604,6 +609,11 @@ export default function ComposePage() {
     if (recipients.length === 0) { toast.error('Add at least one contact'); return; }
     if (!subject.trim()) { toast.error('Subject is required'); return; }
     if (!body.trim() || body === '<p></p>') { toast.error('Email body is required'); return; }
+
+    // Prevent a stray draft row: cancel any pending autosave and wait for one
+    // already in flight so currentDraftId reflects the latest saved row.
+    clearTimeout(autoSaveTimerRef.current);
+    if (autoSaveInFlightRef.current) await autoSaveInFlightRef.current;
 
     if (saveAsDraft) setSavingDraft(true);
     else setSending(true);
