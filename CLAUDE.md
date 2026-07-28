@@ -88,7 +88,14 @@ var FIRST. Almost every production bug so far was exactly that, hidden by silent
   `https://callscade.com/**`. Custom SMTP via Resend. Recovery email template links to
   `{{ .SiteURL }}/auth/reset-password?token_hash={{ .TokenHash }}&type=recovery`.
 - Gmail OAuth working in prod (gmail.send scope; redirect URI
-  https://callscade.com/api/auth/gmail/callback). Microsoft/Outlook OAuth not yet configured.
+  https://callscade.com/api/auth/gmail/callback).
+- Microsoft/Outlook OAuth: Azure app registered 2026-07-28 (account type "Any Entra ID
+  Tenant + Personal Microsoft accounts"; redirect URI
+  https://callscade.com/api/auth/outlook/callback). Client secret expires **2028-07-28**
+  (24-month max Azure allows — no permanent option). **Rotate before then** or Outlook
+  sending breaks silently in prod: in Azure Portal → App registrations → Callscade app →
+  Certificates & secrets → add a new client secret, then update `MICROSOFT_CLIENT_SECRET`
+  in Vercel and `.env.local`, then redeploy.
 
 ## Domain gotchas
 
@@ -130,7 +137,8 @@ Pro or keep the project active.
 - [ ] Audit that ALL env vars are present in Vercel.
 - [ ] Confirm `ENCRYPTION_KEY` backed up.
 - [ ] `npm uninstall @supabase/auth-helpers-nextjs` (unused).
-- [ ] Microsoft/Outlook OAuth.
+- [x] Microsoft/Outlook OAuth — DONE 2026-07-28 (see Admin/accounts section for secret
+      expiry: 2028-07-28).
 
 ## Cross-machine workflow
 
